@@ -1,50 +1,34 @@
-//#include <vector>
-//#include <cmath>
-//#include <algorithm>
-//#include "Turbine.hpp"
-//
-//struct Turbine {
-//    double Ct;
-//    double yaw_angle;
-//    double rotor_diameter;
-//};
-//
-//void velocity_function(
-//    const std::vector<double>& delta_u_coff,
-//    const std::vector<double>& coeff,
-//    const std::vector<double>& sigma_square,
-//    const std::vector<double>& exp_term,
-//    const std::vector<double>& x_d,
-//    const std::vector<double>& y_d,
-//    const std::vector<double>& z_d,
-//    const Turbine& turbine,
-//    double deflection,
-//    const std::vector<double>& u_initial,
-//    std::vector<double>& turb_u_wake,
-//    std::vector<double>& turb_v_wake,
-//    std::vector<double>& turb_w_wake
-//) {
-//    size_t n = x_d.size();
-//    turb_u_wake.resize(n);
-//    turb_v_wake.resize(n, 0.0);
-//    turb_w_wake.resize(n, 0.0);
-//
-//    double cos_yaw = std::cos(turbine.yaw_angle * M_PI / 180.0);
-//
-//    for (size_t i = 0; i < n; ++i) {
-//        double delta_U = (1.0 - std::sqrt(1.0 - turbine.Ct * cos_yaw * cos_yaw)) * delta_u_coff[i];
-//        double percent_deficit = delta_U * coeff[i] * std::exp(-std::pow(y_d[i] - deflection, 2) / sigma_square[i]) * exp_term[i];
-//        double deficit = percent_deficit * u_initial[i];
-//
-//        // MATLAB: deficit(x_d < 0) = 0;
-//        //         deficit(x_d > 12000) = 0;
-//        if (x_d[i] < 0.0 || x_d[i] > 12000.0) {
-//            deficit = 0.0;
-//        }
-//
-//        turb_u_wake[i] = deficit;
-//        // v, w 分量为零
-//        // turb_v_wake[i] = 0.0;
-//        // turb_w_wake[i] = 0.0;
-//    }
-//}
+#include "Toolset.hpp"
+using namespace Eigen;
+
+// MATLAB的cosd/sind是角度，C++标准库是弧度
+inline static double cosd(double deg) { return std::cos(deg * M_PI / 180.0); }
+inline static double sind(double deg) { return std::sin(deg * M_PI / 180.0); }
+
+Eigen::VectorXd velocity_function(
+    const VectorXd& delta_u_coff,
+    double coeff,
+    const VectorXd& sigma_square,
+    const VectorXd& exp_term,
+    const VectorXd& x_d,
+    const VectorXd& y_d,
+    const VectorXd& z_d,
+    const Turbine& turbine,
+    const VectorXd& deflection,
+    double u_initial
+) {
+    int n = x_d.size();
+    
+    
+    double cos_yaw = cosd(turbine.yaw_angle);
+    VectorXd delta_u_eigen = (1.0 - std::sqrt(1.0 - turbine.getCt() * cos_yaw * cos_yaw)) * delta_u_coff;
+    VectorXd percent_deficit = delta_u_eigen.array() * coeff * (-(y_d - deflection).array().square() / sigma_square.array()).exp()*exp_term.array(); 
+    VectorXd deficit = u_initial * percent_deficit;
+
+    // 条件置零（向量化写法）
+    deficit = (x_d.array() < 0).select(0, deficit);
+    deficit = (x_d.array() > 12000).select(0, deficit);
+
+    // 统计u方向的turbulence
+    return deficit;
+}

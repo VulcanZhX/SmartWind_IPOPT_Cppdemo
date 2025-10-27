@@ -64,7 +64,10 @@ public:
     double life_work_coeff;
     double life_turbulence_coeff;
     double generator_efficiency = 1;
+
+	// optim variable
     double yaw_angle = 0;
+
     double air_density = 1.225;
     double turbulence_ambient;
     double rotor_radius;
@@ -75,7 +78,7 @@ public:
     std::vector<std::vector<double>> power_thrust_table_68;
     std::vector<std::vector<double>> power_thrust_table_83;
     std::vector<double> grid;
-
+    int turbine_idx_org;
     static constexpr int points_turbine_grid = 1;
 
 private:

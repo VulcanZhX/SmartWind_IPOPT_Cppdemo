@@ -4,6 +4,8 @@
 #include <numeric>
 #include <stdexcept>
 using namespace Eigen;
+
+
 // 构造函数实现
 Turbine::Turbine(
 	const std::vector<std::vector<double>>& PT,
@@ -14,8 +16,8 @@ Turbine::Turbine(
 	const std::vector<double>& rated_power_vector,
 	const std::vector<double>& life_total_vector,
 	const std::vector<double>& repair_c_vector,
+	// 机组寿命计算系数
 	const std::vector<double>& fatigue,
-	// 机组寿命计算系数，第一项是机组寿命的扰动系数；第二项是机组设计时所用的参考湍流强度；第三项是机组的维修系数
 	const std::vector<double>& fatigue_p,
 	int count_tn = 1 // 机组编号，从1开始
 ) {
@@ -47,11 +49,14 @@ Turbine::Turbine(
 	else {
 		throw std::invalid_argument("count_tn not found in t_qz");
 	}
-
+	turbine_idx_org = count_tn;
 	power_thrust_table_11.clear();
 	power_thrust_table_68.clear();
 	power_thrust_table_83.clear();
 
+	/*std::vector<std::vector<double>> PT_cpy = PT;
+
+	MatrixXd PT_eigen = Map<MatrixXd>(PT_cpy.data(), PT_cpy.size());*/
 	for (const auto& row : PT) {
 		// 取第1列到第3列
 		power_thrust_table_11.push_back(std::vector<double>(row.begin(), row.begin() + 3));
@@ -62,10 +67,11 @@ Turbine::Turbine(
 	}
 	turbulence_ambient = turbulence_sheer_veer[0];
 	turbulence = turbulence_sheer_veer[0];
-	past_comprehensive_fatigue_coefficient = fatigue[count_tn];
+	past_comprehensive_fatigue_coefficient = fatigue[count_tn-1];
 	annual_average_power = rated_power * 0.7;
 	life_work_coeff = 1.0 / (rated_power * life_total * (1 + repair_c));
 	life_turbulence_coeff = dis_coefficient / (fatigue_p[1] * life_total * (1 + repair_c));
+
 	//updateRadius();
 	//updateGrid();
 }
@@ -132,13 +138,11 @@ std::vector<double> Turbine::calculateTurbineVelocities(const std::vector<double
 void Turbine::updateVelocities(const std::vector<double>& u_wake,
 	const double u_initial,
 	int nt) {
-	// 这里只是示意，实际应根据数据结构实现
-	std::vector<int> u_wak = { 1, 2, 3 };
 	// 拷贝
 	std::vector<double> u_wake_cpy = u_wake; // copy wake data
-	VectorXd u_wake_eig = Map<VectorXd>(u_wake_cpy.data(), u_wake_cpy.size()); //map wake data
-	VectorXd local_wind_speed_u_eig = u_initial - u_wake_eig.array();
-	std::vector<double>local_wind_speed_u(local_wind_speed_u_eig.data(), local_wind_speed_u_eig.data() + local_wind_speed_u_eig.size());
+	VectorXd u_wake_eigen = Map<VectorXd>(u_wake_cpy.data(), u_wake_cpy.size()); //map wake data
+	VectorXd local_wind_speed_u_eigen = u_initial - u_wake_eigen.array();
+	std::vector<double>local_wind_speed_u(local_wind_speed_u_eigen.data(), local_wind_speed_u_eigen.data() + local_wind_speed_u_eigen.size());
 	velocities_u = calculateTurbineVelocities(local_wind_speed_u, nt);
 }
 
@@ -146,8 +150,8 @@ void Turbine::updateVelocities(const std::vector<double>& u_wake,
 void Turbine::updateTurbulenceIntensity(const std::vector<double>& u_turbulence_wake, int nt) {
 	std::vector<double> data = calculateTurbineVelocities(u_turbulence_wake, nt);
 	// calculate the norm of data
-	VectorXd data_eig = Map<VectorXd>(data.data(), data.size());
-	double norm_data = data_eig.norm();
+	VectorXd data_eigen = Map<VectorXd>(data.data(), data.size());
+	double norm_data = data_eigen.norm();
 	turbulence = std::sqrt(turbulence_ambient*turbulence_ambient + norm_data*norm_data);
 }
 
@@ -168,7 +172,7 @@ void Turbine::updateRadius() {
 	rotor_radius = rotor_diameter / 2.0;
 }
 // 
-// 更新网格点
+// 更新网格点, 1 per turbine
 void Turbine::updateGrid() {
 	grid.clear();
 	double xs = -rotor_radius;

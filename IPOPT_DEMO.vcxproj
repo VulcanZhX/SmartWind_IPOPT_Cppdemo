@@ -19,17 +19,25 @@
     </ProjectConfiguration>
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="Farm.hpp" />
     <ClInclude Include="MyNLP.hpp" />
+    <ClInclude Include="Toolset.hpp" />
     <ClInclude Include="Turbine.hpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClCompile Include="combination.cpp" />
     <ClCompile Include="cpp_example.cpp" />
+    <ClCompile Include="Deflection.cpp" />
+    <ClCompile Include="Farm.cpp" />
     <ClCompile Include="MyNLP.cpp" />
+    <ClCompile Include="Rotation.cpp" />
     <ClCompile Include="Turbine.cpp" />
+    <ClCompile Include="Turbulence.cpp" />
     <ClCompile Include="Velocity.cpp" />
   </ItemGroup>
   <ItemGroup>
     <None Include="Cpt.csv" />
+    <None Include="xyz.csv" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <VCProjectVersion>17.0</VCProjectVersion>
