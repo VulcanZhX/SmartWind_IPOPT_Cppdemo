@@ -24,11 +24,11 @@ VectorXd deflection_function(
 
     int index;
     if (rotor_D - 228 == 0) 
-        index = 1;
+        index = 0;
     else if (rotor_D - 158 == 0) 
-        index = 2;
+        index = 1;
     else
-        index = 3;
+        index = 2;
 
 
     // 预计算因子
@@ -40,7 +40,14 @@ VectorXd deflection_function(
 	for (int i : idx_vec) if (i) { any_idx = true; break; } // 检查是否有任何命中点，有则为true
     if (any_idx) {
         // y_model[0][index] 是 std::vector<double>
-		y_c = factor * y_model[index];
+		//y_c = factor * y_model[index]; // for all indexes in idx_vec, otherwise set to 0
+		// extract all non-zero idx from idx_vec
+        std::vector<int> non_zero_idx;
+        for (int i = 0; i < n; i++) {
+            if (idx_vec[i] != 0)
+                non_zero_idx.push_back(i);
+		}
+		y_c(non_zero_idx) = factor * y_model[index];
     }
 
 	return y_c;

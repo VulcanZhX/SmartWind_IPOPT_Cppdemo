@@ -1,10 +1,13 @@
+#ifndef FARM_HPP
+#define FARM_HPP
+
 #include "Turbine.hpp"
 #include "Toolset.hpp"
 
 /*注意：除输入/最终输出与特殊情况下（非数值类数组）时使用vector,其余一律使用Eigen库*/
 
 typedef std::vector<std::tuple<Eigen::MatrixXd, Turbine, int>> TURB_CELLARR;
-static constexpr std::size_t MaxTurbines = 159; //必须与输入风机数量一致
+constexpr std::size_t MaxTurbines = 159; //必须与输入风机数量一致
 
 struct Turbine_cell {
     Eigen::MatrixXd layout;
@@ -74,6 +77,8 @@ public:
     Eigen::VectorXd u; // 风速场
     Eigen::VectorXd turbulence; // 湍流场
     
+	// Methods declarations
+
     // 构造函数
     WindFarmOptimization(
         const std::vector<std::vector<double>>& PT,
@@ -84,6 +89,7 @@ public:
         const std::vector<double>& rated_power_vector,
         const std::vector<double>& life_total_vector,
         const std::vector<double>& repair_c_vector,
+        const std::vector<double>& yaw_vec,
         const std::vector<double>& fatigue,
         const std::vector<double>& fatigue_p,
         const std::vector<std::vector<double>>& layout_farm,
@@ -102,8 +108,6 @@ public:
     Eigen::VectorXd getY() const;
     Eigen::VectorXd getZ() const;
 
-    // rotated相关预计算
-    RotatedResult compute_rotated();
 
     // 获取所有风机偏航角
     Eigen::VectorXd getYawAngles() const;
@@ -142,12 +146,22 @@ public:
 
     // 其他接口和成员函数根据需要补充...
 
-    Turbine_cell rotated_turbine(Eigen::VectorXd& center, double angle);
-
 private:
-    // 预计算缓存等
-    // ...
+    
+	RotatedResult rotated_result_cache; // 预计算缓存等
+	int cache_stored = 0; // 标志，指示缓存是否已存储
+
+	Turbine_cell rotated_turbine(Eigen::VectorXd& center, double angle); // turbine layout rotation
+
+    // rotated相关预计算
+    RotatedResult compute_rotated();
+
+    // prepare static cache
+    RotatedResult prepareStaticCache();
+
 };
 
 Turbine_cell sortInX(const Turbine_cell& turbine_arr);
 Eigen::VectorXd polyval(const Eigen::VectorXd& x, const Eigen::VectorXd& coeffs);
+
+#endif

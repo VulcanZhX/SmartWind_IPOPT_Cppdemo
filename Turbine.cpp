@@ -72,8 +72,8 @@ Turbine::Turbine(
 	life_work_coeff = 1.0 / (rated_power * life_total * (1 + repair_c));
 	life_turbulence_coeff = dis_coefficient / (fatigue_p[1] * life_total * (1 + repair_c));
 
-	//updateRadius();
-	//updateGrid();
+	updateRadius();
+	updateGrid();
 }
 
 // 线性插值工具
@@ -129,7 +129,7 @@ std::vector<double> Turbine::calculateTurbineVelocities(const std::vector<double
 	// 这里只是示意，实际应根据 grid 的定义和 local_wind_speed 的结构实现
 	for (size_t i = 0; i < grid[2]; ++i) {
 		int idx = static_cast<int>(grid[2]);
-		data[i] = local_wind_speed[nt]; // 需根据实际数据结构调整
+		data[i] = local_wind_speed[nt-1]; // 需根据实际数据结构调整
 	}
 	return data;
 }
@@ -175,7 +175,7 @@ void Turbine::updateRadius() {
 // 更新网格点, 1 per turbine
 void Turbine::updateGrid() {
 	grid.clear();
-	double xs = -rotor_radius;
+	double xs = rotor_radius;
 	grid = std::vector<double>(3, 0);
 	grid[0] = xs;
 	grid[2] = 1;

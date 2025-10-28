@@ -3,6 +3,7 @@ using namespace Eigen;
 
 // 3d coord rotation (Rot x Pos' form)
 MatrixXd rot_func(Eigen::MatrixXd& pos, Eigen::VectorXd& center, double angle) {
+	angle = angle * M_PI / 180; // deg to rad
 	RowVectorXd center_row = center.transpose();
 	MatrixXd pos_offset = pos.rowwise() - center_row;
 	MatrixXd RotMat(3, 3);

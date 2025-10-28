@@ -1,11 +1,6 @@
-// Copyright (C) 2004, 2006 International Business Machines and others.
-// All Rights Reserved.
-// This code is published under the Eclipse Public License.
-//
 // Authors:  Carl Laird, Andreas Waechter     IBM    2004-11-05
 
 #include "MyNLP.hpp"
-
 #include <cassert>
 
 #ifdef __GNUC__
@@ -15,8 +10,12 @@
 using namespace Ipopt;
 
 /* Constructor. */
-MyNLP::MyNLP()
-{ }
+MyNLP::MyNLP(const WindFarmOptimization& farmopt_cpy)
+	: farmopt(farmopt_cpy)
+{
+	// No additional initialization required
+}
+
 
 MyNLP::~MyNLP()
 { }
@@ -29,22 +28,22 @@ bool MyNLP::get_nlp_info(
    IndexStyleEnum& index_style
 )
 {
-   // The problem described in MyNLP.hpp has 2 variables, x1, & x2,
-   n = 2;
+   // The problem described in MyNLP.hpp has n variables
+   n = MaxTurbines;
 
-   // one equality constraint,
-   m = 1;
+   // m equality constraint,
+   m = 2;
 
-   // 2 nonzeros in the jacobian (one for x1, and one for x2),
-   nnz_jac_g = 2;
+   // nonzeros in the jacobian
+   nnz_jac_g = m * n; // for simplicity, the jacobian matrix is assumed to be dense
 
-   // and 2 nonzeros in the hessian of the lagrangian
-   // (one in the hessian of the objective for x2,
-   //  and one in the hessian of the constraints for x1)
-   nnz_h_lag = 2;
+   //// and 2 nonzeros in the hessian of the lagrangian
+   //// (one in the hessian of the objective for x2,
+   ////  and one in the hessian of the constraints for x1)
+   //nnz_h_lag = 2;
 
    // We use the standard fortran index style for row/col entries
-   index_style = FORTRAN_STYLE;
+   index_style = C_STYLE;
 
    return true;
 }
@@ -60,23 +59,18 @@ bool MyNLP::get_bounds_info(
 {
    // here, the n and m we gave IPOPT in get_nlp_info are passed back to us.
    // If desired, we could assert to make sure they are what we think they are.
-   assert(n == 2);
-   assert(m == 1);
+   assert(n == MaxTurbines);
+   assert(m == 2);
 
-   // x1 has a lower bound of -1 and an upper bound of 1
-   x_l[0] = -1.0;
-   x_u[0] = 1.0;
+   // lower bound and upper bound on x
+   for (Index i = 0; i < n; i++) {
+	   x_l[i] = farmopt.yaw_lower; // x lower bound
+	   x_u[i] = farmopt.yaw_upper; // x upper bound
+   }
 
-   // x2 has no upper or lower bound, so we set them to
-   // a large negative and a large positive number.
-   // The value that is interpretted as -/+infinity can be
-   // set in the options, but it defaults to -/+1e19
-   x_l[1] = -1.0e19;
-   x_u[1] = +1.0e19;
-
-   // we have one equality constraint, so we set the bounds on this constraint
-   // to be equal (and zero).
-   g_l[0] = g_u[0] = 0.0;
+   // we have two inequality constraints. the lower bounds are zero
+   g_l[0] = 0.0;
+   g_l[1] = 0.0;
 
    return true;
 }
@@ -101,8 +95,9 @@ bool MyNLP::get_starting_point(
    assert(init_lambda == false);
 
    // we initialize x in bounds, in the upper right quadrant
-   x[0] = 0.5;
-   x[1] = 1.5;
+   for (Index i = 0; i < n; i++) {
+       x[i] = 0.0;
+   }
 
    return true;
 }
@@ -115,9 +110,7 @@ bool MyNLP::eval_f(
 )
 {
    // return the value of the objective function
-   Number x2 = x[1];
-
-   obj_value = -(x2 - 2.0) * (x2 - 2.0);
+	obj_value = objPower(const_cast<Number*>(x));
 
    return true;
 }
@@ -196,50 +189,50 @@ bool MyNLP::eval_jac_g(
    return true;
 }
 
-bool MyNLP::eval_h(
-   Index         n,
-   const Number* x,
-   bool          new_x,
-   Number        obj_factor,
-   Index         m,
-   const Number* lambda,
-   bool          new_lambda,
-   Index         nele_hess,
-   Index*        iRow,
-   Index*        jCol,
-   Number*       values
-)
-{
-   if( values == NULL )
-   {
-      // return the structure. This is a symmetric matrix, fill the lower left
-      // triangle only.
-
-      // element at 1,1: grad^2_{x1,x1} L(x,lambda)
-      iRow[0] = 1;
-      jCol[0] = 1;
-
-      // element at 2,2: grad^2_{x2,x2} L(x,lambda)
-      iRow[1] = 2;
-      jCol[1] = 2;
-
-      // Note: off-diagonal elements are zero for this problem
-   }
-   else
-   {
-      // return the values
-
-      // element at 1,1: grad^2_{x1,x1} L(x,lambda)
-      values[0] = -2.0 * lambda[0];
-
-      // element at 2,2: grad^2_{x2,x2} L(x,lambda)
-      values[1] = -2.0 * obj_factor;
-
-      // Note: off-diagonal elements are zero for this problem
-   }
-
-   return true;
-}
+//bool MyNLP::eval_h(
+//   Index         n,
+//   const Number* x,
+//   bool          new_x,
+//   Number        obj_factor,
+//   Index         m,
+//   const Number* lambda,
+//   bool          new_lambda,
+//   Index         nele_hess,
+//   Index*        iRow,
+//   Index*        jCol,
+//   Number*       values
+//)
+//{
+//   if( values == NULL )
+//   {
+//      // return the structure. This is a symmetric matrix, fill the lower left
+//      // triangle only.
+//
+//      // element at 1,1: grad^2_{x1,x1} L(x,lambda)
+//      iRow[0] = 1;
+//      jCol[0] = 1;
+//
+//      // element at 2,2: grad^2_{x2,x2} L(x,lambda)
+//      iRow[1] = 2;
+//      jCol[1] = 2;
+//
+//      // Note: off-diagonal elements are zero for this problem
+//   }
+//   else
+//   {
+//      // return the values
+//
+//      // element at 1,1: grad^2_{x1,x1} L(x,lambda)
+//      values[0] = -2.0 * lambda[0];
+//
+//      // element at 2,2: grad^2_{x2,x2} L(x,lambda)
+//      values[1] = -2.0 * obj_factor;
+//
+//      // Note: off-diagonal elements are zero for this problem
+//   }
+//
+//   return true;
+//}
 
 void MyNLP::finalize_solution(
    SolverReturn               status,
@@ -259,3 +252,21 @@ void MyNLP::finalize_solution(
    // so we could use the solution. Since the solution is displayed to the console,
    // we currently do nothing here.
 }
+
+
+// private methods imported
+
+double MyNLP::objPower(Number* x) {
+    // convert x to vector<double>
+	std::vector<double> x_vec(MaxTurbines); // to be fixed
+    for (Index i = 0; i < MaxTurbines; i++) {
+        x_vec[i] = x[i];
+    }
+	// set yaw angles
+	farmopt.setYawAngles(Eigen::Map<Eigen::VectorXd>(x_vec.data(), x_vec.size()));
+    return -farmopt.getFarmPower();
+}
+
+// g(x) (constriants) implementation can be added here if needed
+
+// grad_f and grad_g implementations can be added here if needed

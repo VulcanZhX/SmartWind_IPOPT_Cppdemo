@@ -32,9 +32,6 @@
     <ClCompile Include="cpp_example.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
-    <ClCompile Include="MyNLP.cpp">
-      <Filter>源文件</Filter>
-    </ClCompile>
     <ClCompile Include="Turbine.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
@@ -56,12 +53,18 @@
     <ClCompile Include="combination.cpp">
       <Filter>源文件</Filter>
     </ClCompile>
+    <ClCompile Include="MyNLP.cpp">
+      <Filter>源文件</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <None Include="Cpt.csv">
       <Filter>Resources</Filter>
     </None>
     <None Include="xyz.csv">
+      <Filter>Resources</Filter>
+    </None>
+    <None Include="t_qz.csv">
       <Filter>Resources</Filter>
     </None>
   </ItemGroup>

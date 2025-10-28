@@ -1,6 +1,8 @@
 #include "Farm.hpp"
 #include <numeric>
+
 using namespace Eigen;
+
 
 inline int encase180(int angle) {
 	angle = angle % 360;
@@ -22,6 +24,7 @@ WindFarmOptimization::WindFarmOptimization(
 	const std::vector<double>& rated_power_vector,
 	const std::vector<double>& life_total_vector,
 	const std::vector<double>& repair_c_vector,
+	const std::vector<double>& yaw_vec,
 	const std::vector<double>& fatigue,
 	const std::vector<double>& fatigue_p,
 	const std::vector<std::vector<double>>& layout_farm,
@@ -32,17 +35,20 @@ WindFarmOptimization::WindFarmOptimization(
 	Turbine turbine_c(PT, t_qz, turbulence_sheer_veer, turbine_diameter_vector, turbine_hub_height_vector, rated_power_vector, life_total_vector, repair_c_vector, fatigue, fatigue_p, 1);
 	std::vector<Turbine> turbine_chart_input(n_turbines, turbine_c);
 
-	// flatten layout_farm and store into Matrix layout...
+	// flatten layout_farm and store into Matrix layout... to be changed!
 	std::vector<double> flat_layout;
 	flat_layout.reserve(layout_farm.size() * layout_farm[0].size());
 	for (const auto& row : layout_farm) {
 		flat_layout.insert(flat_layout.end(), row.begin(), row.end());
 	}
-	layout = Eigen::Map<Eigen::MatrixXd>(flat_layout.data(), n_turbines, 3);
+	MatrixXd layout_temp = Eigen::Map<Eigen::MatrixXd>(flat_layout.data(), 1, flat_layout.size());
+	layout_temp.resize(layout_farm[0].size(), layout_farm.size());
+	layout = layout_temp.transpose();
 
-	int count_tn = 1;
+	int count_tn = 1; // label
 	for (auto& elem : turbine_chart_input) {
 		elem = Turbine(PT, t_qz, turbulence_sheer_veer, turbine_diameter_vector, turbine_hub_height_vector, rated_power_vector, life_total_vector, repair_c_vector, fatigue, fatigue_p, count_tn);
+		elem.yaw_angle = yaw_vec[count_tn - 1];
 		count_tn++;
 	}
 	turbine_chart = turbine_chart_input;
@@ -116,7 +122,9 @@ VectorXd WindFarmOptimization::getZ() const {
 	return z;
 }
 
+// private method for rotating turbine layout
 Turbine_cell WindFarmOptimization::rotated_turbine(Eigen::VectorXd& center, double angle) {
+	angle = angle * M_PI / 180.0; // deg to rad
 	RowVectorXd center_row = center.transpose();
 	MatrixXd pos = this->layout;
 	MatrixXd pos_offset = pos.rowwise() - center_row;
@@ -129,6 +137,7 @@ Turbine_cell WindFarmOptimization::rotated_turbine(Eigen::VectorXd& center, doub
 	return rot_turbinearray;
 }
 
+// private method for rotation cache computation
 RotatedResult WindFarmOptimization::compute_rotated() {
 	VectorXd bd = getBounds();
 	VectorXd center(3);
@@ -180,15 +189,15 @@ RotatedResult WindFarmOptimization::compute_rotated() {
 		delta_u[i] = (1.0 / (2 * (d_w.array().square()))).array() * (1 + erf_val.array()).array();
 		sigma_square[i] = 2 * sigma_0 * sigma_0 * d_w.array().square();
 		coeff[i] = rotor_D * rotor_D / (8 * sigma_0);
-		exp_term[i] = (-z_d[i].array().exp()) / sigma_square[i].array();
+		exp_term[i] = (-((z_d[i].array()).square())).exp() / sigma_square[i].array();
 		sigma_tm[i] = sigma_y / (2 * log(2));
-		R_half[i] = sigma_y * sqrt(log(2));
+		R_half[i] = sigma_y * sqrt(2*log(2));
 	}
 
 	// wake deflection model
 	double x_max = 12000;
-	//polynomial coefficients for delta_y calculation
-	VectorXd p11, p22, p33;
+	//polynomial coefficients for delta_y calculation (order=6)
+	VectorXd p11(7), p22(7), p33(7);
 	p11 << 10.0036, -17.567, -11.4904, 10.5864, 42.2003, -73.2544, -634.79;
 	p22 << 11.2166, -16.8436, -21.0378, 20.0129, 34.061, -45.3254, -465.76;
 	p33 << 11.0171, -17.3562, -18.3961, 17.581, 36.6349, -53.5914, -520.945;
@@ -206,20 +215,20 @@ RotatedResult WindFarmOptimization::compute_rotated() {
 				idx_mask[i].push_back(0);
 		}
 		//根据idx_compact 切片
-		VectorXd zz_sel = x_d[i](placeholders::all, idx_compact[i]);
+		VectorXd zz_sel = (x_d[i](idx_compact[i]).array()-6000)/3465.54;
 		VectorXd y_sel1 = polyval(zz_sel, p11);
 		VectorXd y_sel2 = polyval(zz_sel, p22);
 		VectorXd y_sel3 = polyval(zz_sel, p33);
-		y_model[i][0] = y_sel1;
-		y_model[i][1] = y_sel2;
-		y_model[i][2] = y_sel3;
+		y_model[i].push_back(y_sel1);
+		y_model[i].push_back(y_sel2);
+		y_model[i].push_back(y_sel3);
 
-		//反向映射回原始位置（未命中位置赋值为-1）
-		VectorXd pos_to_compact = VectorXd::Constant(N, -1);
-		for (int j = 0; j < idx_compact[i].size(); j++) {
-			pos_to_compact(idx_compact[i][j]) = j;
-		}
-		y_d[i] = pos_to_compact;
+		////反向映射回原始位置（未命中位置赋值为-1）
+		//VectorXd pos_to_compact = VectorXd::Constant(N, -1);
+		//for (int j = 0; j < idx_compact[i].size(); j++) {
+		//	pos_to_compact(idx_compact[i][j]) = j;
+		//}
+		// y_d[i] = pos_to_compact;
 	}
 
 	//construct and return RotatedResult
@@ -245,6 +254,14 @@ RotatedResult WindFarmOptimization::compute_rotated() {
 }
 
 
+RotatedResult WindFarmOptimization::prepareStaticCache() {
+	if (cache_stored == 0) {
+		rotated_result_cache = compute_rotated();
+		cache_stored = 1;
+	}
+	return rotated_result_cache;
+}
+
 // calculatewake
 void WindFarmOptimization::calculateWake() {
 	VectorXd u_init = VectorXd::Constant(n_turbines, wind_speed); // initialize u field
@@ -255,7 +272,7 @@ void WindFarmOptimization::calculateWake() {
 	this->turbulence = turbulence_init;
 
 	// Read cached rotated results (to be implemented)
-	RotatedResult rotated_result = compute_rotated();
+	RotatedResult rotated_result = prepareStaticCache();
 	std::array<int, MaxTurbines> sorted_indexes = rotated_result.sorted_indexes;
 	std::vector<VectorXd> x_d = rotated_result.x_d;
 	std::vector<VectorXd> y_d = rotated_result.y_d;
@@ -416,7 +433,6 @@ Turbine_cell sortInX(const Turbine_cell& turbine_arr) {
 	const int N = layout.rows();
 
 	// 按 layout(i,0) 排序（x 值），stable_sort 保持相等元素的相对顺序
-	double k = layout(10, 0);
 	std::stable_sort(idx.begin(), idx.end(),
 		[&layout](int a, int b) {
 			return layout(a - 1, 0) < layout(b - 1, 0); //idx 1-159, subscript 0-158

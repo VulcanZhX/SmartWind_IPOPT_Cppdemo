@@ -29,7 +29,10 @@
     <ClCompile Include="cpp_example.cpp" />
     <ClCompile Include="Deflection.cpp" />
     <ClCompile Include="Farm.cpp" />
-    <ClCompile Include="MyNLP.cpp" />
+    <ClCompile Include="MyNLP.cpp">
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">false</ExcludedFromBuild>
+      <ExcludedFromBuild Condition="'$(Configuration)|$(Platform)'=='Release|x64'">false</ExcludedFromBuild>
+    </ClCompile>
     <ClCompile Include="Rotation.cpp" />
     <ClCompile Include="Turbine.cpp" />
     <ClCompile Include="Turbulence.cpp" />
@@ -37,6 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Cpt.csv" />
+    <None Include="t_qz.csv" />
     <None Include="xyz.csv" />
   </ItemGroup>
   <PropertyGroup Label="Globals">
