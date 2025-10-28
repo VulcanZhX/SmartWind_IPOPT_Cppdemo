@@ -40,6 +40,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="Cpt.csv" />
+    <None Include="README.md" />
     <None Include="t_qz.csv" />
     <None Include="xyz.csv" />
   </ItemGroup>
